@@ -10,6 +10,6 @@ This repository is dedicated to a collection of my Data Analysis and Machine Lea
 
 4) Dog Breed Classification (dataset obtained from: )
 
-5) Brain Tumor Object 
+5) MRI for Brain Tumor Classification (dataset obtained from: https://www.kaggle.com/datasets/ahmedsorour1/mri-for-brain-tumor-with-bounding-boxes)
 
 
