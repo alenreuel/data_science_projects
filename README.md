@@ -8,7 +8,7 @@ This repository is dedicated to a collection of my Data Analysis and Machine Lea
 
 3) Network Analysis (dataset obtained from: https://openflights.org/data.html)
 
-4) Dog Breed Classification (dataset obtained from: )
+4) Dog Breed Classification 
 
 5) MRI for Brain Tumor Classification (dataset obtained from: https://www.kaggle.com/datasets/ahmedsorour1/mri-for-brain-tumor-with-bounding-boxes)
 
