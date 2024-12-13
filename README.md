@@ -8,4 +8,8 @@ This repository is dedicated to a collection of my Data Analysis and Machine Lea
 
 3) Network Analysis (dataset obtained from: https://openflights.org/data.html)
 
+4) Dog Breed Classification (dataset obtained from: )
+
+5) Brain Tumor Object 
+
 
