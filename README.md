@@ -19,9 +19,6 @@ ChatGPT is a powerful LLM created by OpenAI which has been a recently gained a l
 2) Identify underlying trends in tweet patterns.
 3) Identify what are the possible broad topics of discussion in tweets(based on their Sentiment.)
 
-4) MRI for Brain Tumor Classification (dataset obtained from: https://www.kaggle.com/datasets/ahmedsorour1/mri-for-brain-tumor-with-bounding-boxes)
-
-
 ## airline_network_analysis 
 
 **Dataset for the project:** [dataset_link](https://openflights.org/data.html)
