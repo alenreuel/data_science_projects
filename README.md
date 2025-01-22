@@ -35,7 +35,7 @@ In this project we utilize pyTorch library to create and evalaute a Convolutiona
 
 ## english_to_french_machine_translation 
 
-**Dataset for the project:** [dataset_link](https://www.kaggle.com/datasets/ahmedsorour1/mri-for-brain-tumor-with-bounding-boxes)
+**Dataset for the project:** [dataset_link](https://www.kaggle.com/datasets/dhruvildave/en-fr-translation-dataset)
 
 Project to create a English to French Language translation model.
 
