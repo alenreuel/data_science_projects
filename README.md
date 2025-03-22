@@ -33,10 +33,3 @@ A airline dataset was transformed into Graph data structre, where Airports abd f
 
 In this project we utilize pyTorch library to create and evalaute a Convolutional Neural Network model to predict if there is a Tumor present (Glioma/Meningioma/Pituitary) using MRI images and localize them using bounding boxes. 
 
-## english_to_french_machine_translation 
-
-**Dataset for the project:** [dataset_link](https://www.kaggle.com/datasets/dhruvildave/en-fr-translation-dataset)
-
-Project to create a English to French Language translation model.
-
-currently ongoing....
