@@ -22,9 +22,16 @@ class ModelTraining:
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.001)
 
+        self.t_means = (self.data["X"]*self.get_mask("train_mask")).mean(dim=0, keepdim=True)
+        self.t_stds = (self.data["X"]*self.get_mask("train_mask")).std(dim=0, keepdim=True)
+        
+
     def get_mask(self, mask_name):
         return self.data[mask_name].reshape(-1,1).repeat(1,self.data["X"].shape[1])
     
+    def normalize(self, data):
+        normalized_data = (data - self.t_means) / (self.t_stds+1e-10)
+        return normalized_data
 
     def train_model(self):
         
@@ -35,7 +42,7 @@ class ModelTraining:
         # Sets the gradients of all optimized tensors to zero
         self.optimizer.zero_grad()
         
-        predictions = self.model((self.data["X"]*self.get_mask("train_mask")).to(device), self.data["edge_index"].to(device))
+        predictions = self.model(self.normalize(self.data["X"]*self.get_mask("train_mask")).to(device), self.data["edge_index"].to(device))
         
         # Compute loss (here CrossEntropyLoss)
         loss = F.cross_entropy(predictions[self.data["train_mask"]].float(), (self.data["y"][self.data["train_mask"]]).to(device))
@@ -53,7 +60,7 @@ class ModelTraining:
     def val_model(self):
         self.model.eval()
         with torch.inference_mode():
-            predictions = self.model((self.data["X"]*self.get_mask("val_mask")).to(device), self.data["edge_index"].to(device))
+            predictions = self.model(self.normalize(self.data["X"]*self.get_mask("val_mask")).to(device), self.data["edge_index"].to(device))
         
         loss = F.cross_entropy(predictions[self.data["val_mask"]].float(), (self.data["y"][self.data["val_mask"]]).to(device))
         
