@@ -1,5 +1,6 @@
 from sklearn.metrics import accuracy_score
 
+import tqdm
 import torch
 import torch.nn.functional as F
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -72,20 +73,23 @@ class ModelTraining:
     def training_loop(self, model_path, n_epochs=101):
         best_loss = float("inf")
 
-        for epoch in range(1,n_epochs):
 
-            self.training_logs["epoch"].append(epoch)
-            
-            self.train_model()
-            self.val_model()
-            if self.training_logs["val_loss"][-1]<best_loss:
-                torch.save(self.model.state_dict(), model_path)
-                best_loss = self.training_logs["val_loss"][-1]
-            if epoch%5==0:
-                prog_str = ""
-                for i in self.training_logs.keys():
-                    prog_str += f" {i}: {self.training_logs[i][-1]} |"
-                print(prog_str)
+        with tqdm.tqdm(range(1,n_epochs), unit = "epoch") as tepoch:
+            for epoch in tepoch:
+
+                self.training_logs["epoch"].append(epoch)
+                
+                self.train_model()
+                self.val_model()
+                if self.training_logs["val_loss"][-1]<best_loss:
+                    torch.save(self.model.state_dict(), model_path)
+                    best_loss = self.training_logs["val_loss"][-1]
+                
+                tepoch.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
+                                   validation_loss=self.training_logs["val_loss"][-1], 
+                                   training_accuracy=100. * self.training_logs["training_acc"][-1],
+                                   validation_accuracy=100. * self.training_logs["val_acc"][-1],
+                                   )
     
         
 
