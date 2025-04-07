@@ -62,7 +62,7 @@ class MLP_Model(nn.Module):
         self,
         c_in,
         c_hidden,
-        c_out,
+        c_out=1,
         num_layers=2,
         dp_rate=0.1
         ):
@@ -89,7 +89,7 @@ class MLP_Model(nn.Module):
                 nn.Dropout(dp_rate),
             ]
             in_channels = c_hidden
-        layers += [nn.Linear(in_channels=in_channels, out_channels=c_out)]
+        layers += [nn.Linear(in_channels=in_channels, out_channels=1)]
         self.layers = nn.ModuleList(layers)
 
     def forward(self, x, edge_index):

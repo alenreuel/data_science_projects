@@ -43,10 +43,11 @@ class ModelTraining:
         # Sets the gradients of all optimized tensors to zero
         self.optimizer.zero_grad()
         
-        predictions = self.model(self.normalize(self.data["X"]*self.get_mask("train_mask")).to(device), self.data["edge_index"].to(device))
+        X_data = self.normalize(self.data["X"]*self.get_mask("train_mask")).to(device)
+        predictions = self.model(X_data, self.data["edge_index"].to(device))
         
         # Compute loss (here CrossEntropyLoss)
-        loss = F.cross_entropy(predictions[self.data["train_mask"]].float(), (self.data["y"][self.data["train_mask"]]).to(device))
+        loss = F.BCELoss(predictions[self.data["train_mask"]].float(), (self.data["y"][self.data["train_mask"]]).to(device))
         # BackProp + Gradient Descent
         (loss).backward()
         self.optimizer.step()
@@ -63,7 +64,7 @@ class ModelTraining:
         with torch.inference_mode():
             predictions = self.model(self.normalize(self.data["X"]*self.get_mask("val_mask")).to(device), self.data["edge_index"].to(device))
         
-        loss = F.cross_entropy(predictions[self.data["val_mask"]].float(), (self.data["y"][self.data["val_mask"]]).to(device))
+        loss = F.BCELoss(predictions[self.data["val_mask"]].float(), (self.data["y"][self.data["val_mask"]]).to(device))
         
         # metrics
         self.training_logs["val_loss"].append(loss.item())
