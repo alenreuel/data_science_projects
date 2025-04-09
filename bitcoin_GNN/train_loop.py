@@ -3,7 +3,8 @@ from sklearn.metrics import accuracy_score
 import tqdm
 import torch
 import torch.nn.functional as F
-device = "cuda" if torch.cuda.is_available() else "cpu"
+
+device = "cpu" # not enough memory
 
 class ModelTraining:
     def __init__(self, model, data):
@@ -23,14 +24,16 @@ class ModelTraining:
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.001)
 
-        self.t_means = (self.data["X"]*self.get_mask("train_mask")).mean(dim=0, keepdim=True)
-        self.t_stds = (self.data["X"]*self.get_mask("train_mask")).std(dim=0, keepdim=True)
+        self.t_means = (self.data["X"]*self.get_mask_for_X("train_mask")).mean(dim=0, keepdim=True)
+        self.t_stds = (self.data["X"]*self.get_mask_for_X("train_mask")).std(dim=0, keepdim=True)
         
 
-    def get_mask(self, mask_name):
-        return self.data[mask_name].reshape(-1,1).repeat(1,self.data["X"].shape[1])
+    def get_mask_for_X(self, mask_name):
+
+        return self.data[mask_name].type(torch.long).reshape(-1,1).repeat(1,self.data["X"].shape[1])
     
     def normalize(self, data):
+
         normalized_data = (data - self.t_means) / (self.t_stds+1e-10)
         return normalized_data
 
@@ -43,18 +46,19 @@ class ModelTraining:
         # Sets the gradients of all optimized tensors to zero
         self.optimizer.zero_grad()
         
-        X_data = self.normalize(self.data["X"]*self.get_mask("train_mask")).to(device)
-        predictions = self.model(X_data, self.data["edge_index"].to(device))
-        
+        X_data = self.normalize(self.data["X"]*self.get_mask_for_X("train_mask")).to(device)
+
+        predictions = self.model(X_data, self.data["edge_index"].to(device))[self.data["train_mask"]]
+        ground_truth = (self.data["y"]).type(torch.float)[self.data["train_mask"]]
         # Compute loss (here CrossEntropyLoss)
-        loss = F.BCELoss(predictions[self.data["train_mask"]].float(), (self.data["y"][self.data["train_mask"]]).to(device))
+        loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
         # BackProp + Gradient Descent
         (loss).backward()
         self.optimizer.step()
         
         # metrics
         self.training_logs["training_loss"].append(loss.item())
-        train_accuracy = accuracy_score(self.data["y"][self.data["train_mask"]].cpu().numpy(), torch.argmax(predictions[self.data["train_mask"]],dim=1).cpu().numpy() )
+        train_accuracy = accuracy_score(ground_truth.cpu().numpy(), (predictions>0.5).type(torch.long).cpu().numpy() )
         self.training_logs["training_acc"].append(train_accuracy)
         
         
@@ -62,13 +66,13 @@ class ModelTraining:
     def val_model(self):
         self.model.eval()
         with torch.inference_mode():
-            predictions = self.model(self.normalize(self.data["X"]*self.get_mask("val_mask")).to(device), self.data["edge_index"].to(device))
-        
-        loss = F.BCELoss(predictions[self.data["val_mask"]].float(), (self.data["y"][self.data["val_mask"]]).to(device))
+            predictions = self.model(self.normalize(self.data["X"]*self.get_mask_for_X("val_mask")).to(device), self.data["edge_index"].to(device))[self.data["val_mask"]]
+            ground_truth = (self.data["y"]).type(torch.float)[self.data["val_mask"]]
+            loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
         
         # metrics
         self.training_logs["val_loss"].append(loss.item())
-        val_accuracy = accuracy_score(self.data["y"][self.data["val_mask"]].cpu().numpy(), torch.argmax(predictions[self.data["val_mask"]],dim=1).cpu().numpy() )
+        val_accuracy = accuracy_score(ground_truth.cpu().numpy(), (predictions>0.5).type(torch.long).cpu().numpy() )
         self.training_logs ["val_acc"].append(val_accuracy)
 
     def training_loop(self, model_path, n_epochs=101):
