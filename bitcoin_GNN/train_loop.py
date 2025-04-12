@@ -9,8 +9,9 @@ device = "cpu" # not enough memory
 class ModelTraining:
     def __init__(self, model, data):
         
-        # logs
+        # training
         self.training_logs = {}
+        self.training_logs["iter"] = []
         self.training_logs["epoch"] = []
         self.training_logs["training_loss"] = []
         self.training_logs["training_acc"] = []
@@ -75,26 +76,40 @@ class ModelTraining:
         val_accuracy = accuracy_score(ground_truth.cpu().numpy(), (predictions>0.5).type(torch.long).cpu().numpy() )
         self.training_logs ["val_acc"].append(val_accuracy)
 
-    def training_loop(self, model_path, n_epochs=101):
+
+    def update_training_and_unlabelled_mask(self):
+
+        # need to change to Crosee Entropy loss for easier stuff
+        pass
+
+    def training_loop(self, model_path, n_epochs=101, n_iters=5):
         best_loss = float("inf")
 
+        with tqdm.tqdm(range(1,n_iters), unit = "epoch") as t_iter:
+            
+            for iter in t_iter:
 
-        with tqdm.tqdm(range(1,n_epochs), unit = "epoch") as tepoch:
-            for epoch in tepoch:
+                with tqdm.tqdm(range(1,n_epochs), unit = "epoch") as tepoch:
+                    for epoch in tepoch:
 
-                self.training_logs["epoch"].append(epoch)
-                
-                self.train_model()
-                self.val_model()
-                if self.training_logs["val_loss"][-1]<best_loss:
-                    torch.save(self.model.state_dict(), model_path)
-                    best_loss = self.training_logs["val_loss"][-1]
-                
-                tepoch.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
-                                   validation_loss=self.training_logs["val_loss"][-1], 
-                                   training_accuracy=100. * self.training_logs["training_acc"][-1],
-                                   validation_accuracy=100. * self.training_logs["val_acc"][-1],
-                                   )
+                        self.training_logs["epoch"].append(epoch)
+                        
+                        self.train_model()
+                        self.val_model()
+                        if self.training_logs["val_loss"][-1]<best_loss:
+                            torch.save(self.model.state_dict(), model_path)
+                            best_loss = self.training_logs["val_loss"][-1]
+                        
+                        tepoch.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
+                                        validation_loss=self.training_logs["val_loss"][-1], 
+                                        training_accuracy=100. * self.training_logs["training_acc"][-1],
+                                        validation_accuracy=100. * self.training_logs["val_acc"][-1],
+                                        )
+                t_iter.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
+                                        validation_loss=self.training_logs["val_loss"][-1], 
+                                        training_accuracy=100. * self.training_logs["training_acc"][-1],
+                                        validation_accuracy=100. * self.training_logs["val_acc"][-1],
+                                        )
     
         
 
