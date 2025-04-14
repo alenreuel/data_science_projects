@@ -4,6 +4,8 @@ import tqdm
 import torch
 import torch.nn.functional as F
 
+from random import random
+
 device = "cpu" # not enough memory
 
 class ModelTraining:
@@ -17,7 +19,7 @@ class ModelTraining:
         self.training_logs["training_acc"] = []
         self.training_logs["val_loss"] = []       
         self.training_logs["val_acc"] = []
-
+        self.training_logs["unlabelled_count"] = []
         # model
         self.model = model.to(device)
 
@@ -28,6 +30,7 @@ class ModelTraining:
         self.t_means = (self.data["X"]*self.get_mask_for_X("train_mask")).mean(dim=0, keepdim=True)
         self.t_stds = (self.data["X"]*self.get_mask_for_X("train_mask")).std(dim=0, keepdim=True)
         
+
 
     def get_mask_for_X(self, mask_name):
 
@@ -47,7 +50,7 @@ class ModelTraining:
         # Sets the gradients of all optimized tensors to zero
         self.optimizer.zero_grad()
         
-        X_data = self.normalize(self.data["X"]*self.get_mask_for_X("train_mask")).to(device)
+        X_data = self.normalize(self.data["X"]).to(device)
 
         predictions = self.model(X_data, self.data["edge_index"].to(device))[self.data["train_mask"]]
         ground_truth = (self.data["y"]).type(torch.float)[self.data["train_mask"]]
@@ -67,7 +70,7 @@ class ModelTraining:
     def val_model(self):
         self.model.eval()
         with torch.inference_mode():
-            predictions = self.model(self.normalize(self.data["X"]*self.get_mask_for_X("val_mask")).to(device), self.data["edge_index"].to(device))[self.data["val_mask"]]
+            predictions = self.model(self.normalize(self.data["X"]).to(device), self.data["edge_index"].to(device))[self.data["val_mask"]]
             ground_truth = (self.data["y"]).type(torch.float)[self.data["val_mask"]]
             loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
         
@@ -77,39 +80,73 @@ class ModelTraining:
         self.training_logs ["val_acc"].append(val_accuracy)
 
 
-    def update_training_and_unlabelled_mask(self):
+    def update_training_and_unlabelled_mask(self, random_threshold=0.8):
 
         # need to change to Crosee Entropy loss for easier stuff
-        pass
+        original_unlabelled = (self.data.unlabelled_mask == True).nonzero(as_tuple=False)
+
+        # make predictions
+
+        self.model.eval()
+        with torch.inference_mode():
+            predictions = self.model(self.normalize(self.data["X"]).to(device), self.data["edge_index"].to(device))
+            prob = F.sigmoid(predictions)
+        for i in original_unlabelled:
+            r = random()
+            if r>random_threshold:
+                pass
+            else:
+                continue                
+
+            idx = int(i)
+            if prob[idx] >0.98:
+                self.data["y"][idx] = 1
+                self.data["train_mask"][idx] = True
+                self.data["unlabelled_mask"][idx] = False
+            elif (prob[idx]<0.02) and (prob[idx]>0):
+                self.data["y"][idx] = 0
+                self.data["train_mask"][idx] = True
+                self.data["unlabelled_mask"][idx] = False
+
 
     def training_loop(self, model_path, n_epochs=101, n_iters=5):
         best_loss = float("inf")
+        threshold = 0.8
 
-        with tqdm.tqdm(range(1,n_iters), unit = "epoch") as t_iter:
+        with tqdm.tqdm(range(1,n_iters), unit = "Iteration", position=0) as t_iter:
             
             for iter in t_iter:
 
-                with tqdm.tqdm(range(1,n_epochs), unit = "epoch") as tepoch:
+                with tqdm.tqdm(range(1,n_epochs), unit = "epoch", position=1) as tepoch:
                     for epoch in tepoch:
 
                         self.training_logs["epoch"].append(epoch)
-                        
+                        self.training_logs["iter"].append(iter)
+                        self.training_logs["unlabelled_count"].append(torch.sum(self.data["unlabelled_mask"]))
+
                         self.train_model()
                         self.val_model()
                         if self.training_logs["val_loss"][-1]<best_loss:
                             torch.save(self.model.state_dict(), model_path)
                             best_loss = self.training_logs["val_loss"][-1]
-                        
+                    
                         tepoch.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
                                         validation_loss=self.training_logs["val_loss"][-1], 
                                         training_accuracy=100. * self.training_logs["training_acc"][-1],
                                         validation_accuracy=100. * self.training_logs["val_acc"][-1],
                                         )
-                t_iter.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
+
+                    self.update_training_and_unlabelled_mask(threshold)
+                    threshold -= 0.05
+
+                    t_iter.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
                                         validation_loss=self.training_logs["val_loss"][-1], 
                                         training_accuracy=100. * self.training_logs["training_acc"][-1],
                                         validation_accuracy=100. * self.training_logs["val_acc"][-1],
+                                        unlabelled_count = self.training_logs["unlabelled_count"][-1]
                                         )
+                    
+                    
     
         
 
