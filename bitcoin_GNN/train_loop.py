@@ -109,9 +109,8 @@ class ModelTraining:
                 self.data["unlabelled_mask"][idx] = False
 
 
-    def training_loop(self, model_path, n_epochs=101, n_iters=5):
+    def training_loop(self, model_path, n_epochs=101, n_iters=5, threshold = 0.8):
         best_loss = float("inf")
-        threshold = 0.8
 
         with tqdm.tqdm(range(1,n_iters), unit = "Iteration", position=0) as t_iter:
             
@@ -137,7 +136,6 @@ class ModelTraining:
                                         )
 
                     self.update_training_and_unlabelled_mask(threshold)
-                    threshold -= 0.05
 
                     t_iter.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
                                         validation_loss=self.training_logs["val_loss"][-1], 
@@ -148,7 +146,8 @@ class ModelTraining:
                     
                     
     
-        
+    def co_training_loop(self, model_path, n_epochs=101, n_iters=5, threshold = 0.8):
+        pass
 
             
             
