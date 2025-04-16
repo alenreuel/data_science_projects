@@ -1,5 +1,6 @@
 from sklearn.metrics import accuracy_score
-
+from copy import deepcopy
+import os
 import tqdm
 import torch
 import torch.nn.functional as F
@@ -22,7 +23,7 @@ class ModelTraining:
         self.training_logs["unlabelled_count"] = []
         # model
         self.model = model.to(device)
-
+        
         self.data = data
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.001)
@@ -108,14 +109,39 @@ class ModelTraining:
                 self.data["train_mask"][idx] = True
                 self.data["unlabelled_mask"][idx] = False
 
-
-    def training_loop(self, model_path, n_epochs=101, n_iters=5, threshold = 0.8):
+    def regular_training_loop(self, model_path, n_epochs=101):
         best_loss = float("inf")
 
+        self.weight_init(model_path)
+        with tqdm.tqdm(range(1,n_epochs), unit = "epoch", position=1) as tepoch:
+            for epoch in tepoch:
+
+                self.training_logs["epoch"].append(epoch)
+                self.training_logs["iter"].append(0)
+                self.training_logs["unlabelled_count"].append(torch.sum(self.data["unlabelled_mask"]))
+
+                self.train_model()
+                self.val_model()
+                if self.training_logs["val_loss"][-1]<best_loss:
+                    torch.save(self.model.state_dict(), model_path/"best_ind_model.pth")
+                    best_loss = self.training_logs["val_loss"][-1]
+            
+                tepoch.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
+                                validation_loss=self.training_logs["val_loss"][-1], 
+                                training_accuracy=100. * self.training_logs["training_acc"][-1],
+                                validation_accuracy=100. * self.training_logs["val_acc"][-1],
+                                )
+
+                    
+                    
+    def self_supervised_training_loop(self, model_path, n_epochs=101, n_iters=5, threshold = 0.8):
+        best_loss = float("inf")
+        
+        self.weight_init(model_path)
         with tqdm.tqdm(range(1,n_iters), unit = "Iteration", position=0) as t_iter:
             
             for iter in t_iter:
-
+                self.weight_init(model_path)
                 with tqdm.tqdm(range(1,n_epochs), unit = "epoch", position=1) as tepoch:
                     for epoch in tepoch:
 
@@ -126,7 +152,7 @@ class ModelTraining:
                         self.train_model()
                         self.val_model()
                         if self.training_logs["val_loss"][-1]<best_loss:
-                            torch.save(self.model.state_dict(), model_path)
+                            torch.save(self.model.state_dict(), model_path/"best_semi_sip_model.pth")
                             best_loss = self.training_logs["val_loss"][-1]
                     
                         tepoch.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
@@ -143,13 +169,13 @@ class ModelTraining:
                                         validation_accuracy=100. * self.training_logs["val_acc"][-1],
                                         unlabelled_count = self.training_logs["unlabelled_count"][-1]
                                         )
-                    
-                    
-    
-    def co_training_loop(self, model_path, n_epochs=101, n_iters=5, threshold = 0.8):
-        pass
+
 
             
-            
-            
-           
+    
+    def weight_init(self, model_path):
+        if not os.path.exists(model_path/"random_wts.pth"):
+            torch.save(self.model.state_dict(), model_path/"random_wts.pth")
+        
+        self.model.load_state_dict(torch.load(model_path/"random_wts.pth", weights_only=True))
+        self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.0001)
