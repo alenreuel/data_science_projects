@@ -152,7 +152,7 @@ class ModelTraining:
                         self.train_model()
                         self.val_model()
                         if self.training_logs["val_loss"][-1]<best_loss:
-                            torch.save(self.model.state_dict(), model_path/"best_semi_sip_model.pth")
+                            torch.save(self.model.state_dict(), model_path/"best_semi_sup_model.pth")
                             best_loss = self.training_logs["val_loss"][-1]
                     
                         tepoch.set_postfix(training_loss=self.training_logs["training_loss"][-1], 
