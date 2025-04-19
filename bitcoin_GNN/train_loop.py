@@ -28,14 +28,9 @@ class ModelTraining:
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.001)
 
-        self.t_means = (self.data["X"]*self.get_mask_for_X("train_mask")).mean(dim=0, keepdim=True)
-        self.t_stds = (self.data["X"]*self.get_mask_for_X("train_mask")).std(dim=0, keepdim=True)
+        self.t_means = (self.data["X"][self.data["train_mask"]]).mean(dim=0, keepdim=True)
+        self.t_stds = (self.data["X"][self.data["train_mask"]]).std(dim=0, keepdim=True)
         
-
-
-    def get_mask_for_X(self, mask_name):
-
-        return self.data[mask_name].type(torch.long).reshape(-1,1).repeat(1,self.data["X"].shape[1])
     
     def normalize(self, data):
 
@@ -113,7 +108,8 @@ class ModelTraining:
         best_loss = float("inf")
 
         self.weight_init(model_path)
-        with tqdm.tqdm(range(1,n_epochs), unit = "epoch", position=1) as tepoch:
+
+        with tqdm.tqdm(range(1,n_epochs), unit = "epoch") as tepoch:
             for epoch in tepoch:
 
                 self.training_logs["epoch"].append(epoch)
@@ -138,11 +134,10 @@ class ModelTraining:
         best_loss = float("inf")
         
         self.weight_init(model_path)
-        with tqdm.tqdm(range(1,n_iters), unit = "Iteration", position=0) as t_iter:
+        with tqdm.tqdm(range(1,n_iters), unit = "Iteration", position=1, leave=False) as t_iter:
             
             for iter in t_iter:
-                self.weight_init(model_path)
-                with tqdm.tqdm(range(1,n_epochs), unit = "epoch", position=1) as tepoch:
+                with tqdm.tqdm(range(1,n_epochs), unit = "epoch", position=0, leave=False) as tepoch:
                     for epoch in tepoch:
 
                         self.training_logs["epoch"].append(epoch)
