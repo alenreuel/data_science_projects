@@ -174,3 +174,12 @@ class ModelTraining:
         
         self.model.load_state_dict(torch.load(model_path/"random_wts.pth", weights_only=True))
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.0001)
+    
+    def predictions(self, mask):
+
+        X_data = self.normalize(self.data["X"]).to(device)
+
+        predictions = self.model(X_data, self.data["edge_index"].to(device))[self.data[mask]]
+        ground_truth = (self.data["y"]).type(torch.float)[self.data[mask]]
+
+        return (predictions>0.5).type(torch.long).cpu().numpy() , ground_truth.cpu().numpy() 
