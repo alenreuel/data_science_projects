@@ -7,7 +7,9 @@ import torch.nn.functional as F
 
 from random import random
 
-device = "cpu" # not enough memory
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+
 
 class ModelTraining:
     def __init__(self, model, data):
