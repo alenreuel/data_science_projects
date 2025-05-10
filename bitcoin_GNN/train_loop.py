@@ -51,7 +51,7 @@ class ModelTraining:
         X_data = self.normalize(self.data["X"]).to(device)
 
         predictions = self.model(X_data, self.data["edge_index"].to(device))[self.data["train_mask"]]
-        ground_truth = (self.data["y"]).type(torch.float)[self.data["train_mask"]]
+        ground_truth = (self.data["y"]).type(torch.float).to(device)[self.data["train_mask"]]
         # Compute loss (here CrossEntropyLoss)
         loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
         # BackProp + Gradient Descent
@@ -69,7 +69,7 @@ class ModelTraining:
         self.model.eval()
         with torch.inference_mode():
             predictions = self.model(self.normalize(self.data["X"]).to(device), self.data["edge_index"].to(device))[self.data["val_mask"]]
-            ground_truth = (self.data["y"]).type(torch.float)[self.data["val_mask"]]
+            ground_truth = (self.data["y"]).type(torch.float).to(device)[self.data["val_mask"]]
             loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
         
         # metrics
