@@ -12,8 +12,38 @@ print(f"Using device: {device}")
 
 
 class ModelTraining:
-    def __init__(self, model, data):
+    """
+        Class Representing methods to implement the Graph Neural Network Training loop.
         
+        Attributes
+        ----------
+            - training_logs: dictionary used for logging training behavior.
+            - model: Model used
+            - data: Graph Dataset (should be fully processed)
+            - optimizer: optimizer used (Adam used for project)
+            - t_means, t_stds: mean and standard deviation of training set. Used for data normalization.
+        
+        Methods
+        -------
+            - init__: Constructor of the class.
+            - normalize: Helper method to return normalized data.
+            - __train_model: Training portion of the training loop.
+            - __val_model: Validation portion of the training loop.
+            - update_training_and_unlabelled_mask: Logic for updating training and unlabelled masks.
+            - regular_training_loop: Regular training loop.
+            - self_supervised_training_loop: Semi-supervised training loop.
+            - weight_init: Method for re-inintializing a model.
+            - predictions: Method for retrieving model predictions based on training mask.
+        """
+    def __init__(self, model, data):
+        """
+            Constructor of the class.
+
+            Parameters
+            ----------
+                model: GNN_Model
+                data: dataset        
+        """
         # training
         self.training_logs = {}
         self.training_logs["iter"] = []
@@ -35,12 +65,25 @@ class ModelTraining:
         
     
     def normalize(self, data):
+        """
+            Helper method to return normalized data.
+            
+            Parameters
+            ----------
+                data: training/validation/test data
+            
+            Returns
+            -------
+                data (standard scaled) 
+        """
 
         normalized_data = (data - self.t_means) / (self.t_stds+1e-10)
         return normalized_data
 
-    def train_model(self):
-        
+    def __train_model(self):
+        """
+            Training portion of the training loop.
+        """
 
         torch.manual_seed(47)
             
@@ -65,7 +108,11 @@ class ModelTraining:
         
         
             
-    def val_model(self):
+    def __val_model(self):
+        """
+            Validation portion of the training loop.
+        """
+
         self.model.eval()
         with torch.inference_mode():
             predictions = self.model(self.normalize(self.data["X"]).to(device), self.data["edge_index"].to(device))[self.data["val_mask"]]
@@ -79,8 +126,14 @@ class ModelTraining:
 
 
     def update_training_and_unlabelled_mask(self, random_threshold=0.8):
+        """
+            Logic for updating training and unlabelled masks.
 
-        # need to change to Crosee Entropy loss for easier stuff
+            Parameters
+            ----------
+                random_threshold: probility for ignoring to label a specific example.
+        """
+        
         original_unlabelled = (self.data.unlabelled_mask == True).nonzero(as_tuple=False)
 
         # make predictions
@@ -89,6 +142,7 @@ class ModelTraining:
         with torch.inference_mode():
             predictions = self.model(self.normalize(self.data["X"]).to(device), self.data["edge_index"].to(device))
             prob = F.sigmoid(predictions)
+
         for i in original_unlabelled:
             r = random()
             if r>random_threshold:
@@ -107,6 +161,14 @@ class ModelTraining:
                 self.data["unlabelled_mask"][idx] = False
 
     def regular_training_loop(self, model_path, n_epochs=101):
+        """
+            Regular training loop.
+
+            Parameters
+            ----------
+                model_path: file path to save pytorch model.
+                n_epochs: number of training epochs.
+        """
         best_loss = float("inf")
 
         self.weight_init(model_path)
@@ -118,8 +180,8 @@ class ModelTraining:
                 self.training_logs["iter"].append(0)
                 self.training_logs["unlabelled_count"].append(torch.sum(self.data["unlabelled_mask"]))
 
-                self.train_model()
-                self.val_model()
+                self.__train_model()
+                self.__val_model()
                 if self.training_logs["val_loss"][-1]<best_loss:
                     torch.save(self.model.state_dict(), model_path/"best_ind_model.pth")
                     best_loss = self.training_logs["val_loss"][-1]
@@ -133,6 +195,16 @@ class ModelTraining:
                     
                     
     def self_supervised_training_loop(self, model_path, n_epochs=101, n_iters=5, threshold = 0.8):
+        """
+            Semi-supervised training loop.
+
+            Parameters
+            ----------
+                model_path: file path to save pytorch model.
+                n_epochs: number of training epochs.
+                n_iters: number of training examples updates
+                threshold: probability threshold
+        """
         best_loss = float("inf")
         
         self.weight_init(model_path)
@@ -146,8 +218,8 @@ class ModelTraining:
                         self.training_logs["iter"].append(iter)
                         self.training_logs["unlabelled_count"].append(torch.sum(self.data["unlabelled_mask"]))
 
-                        self.train_model()
-                        self.val_model()
+                        self.__train_model()
+                        self.__val_model()
                         if self.training_logs["val_loss"][-1]<best_loss:
                             torch.save(self.model.state_dict(), model_path/"best_semi_sup_model.pth")
                             best_loss = self.training_logs["val_loss"][-1]
@@ -171,6 +243,13 @@ class ModelTraining:
             
     
     def weight_init(self, model_path):
+        """
+        Method for re-inintializing a model.
+
+        Parameters
+        ----------
+            model_path: file path to save pytorch model.
+        """
         if not os.path.exists(model_path/"random_wts.pth"):
             torch.save(self.model.state_dict(), model_path/"random_wts.pth")
         
@@ -178,6 +257,9 @@ class ModelTraining:
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.0001)
     
     def predictions(self, mask):
+        """
+        Method for retrieving model predictions based on training mask.
+        """
 
         X_data = self.normalize(self.data["X"]).to(device)
 
