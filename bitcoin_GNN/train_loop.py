@@ -5,6 +5,7 @@ import tqdm
 import torch
 import torch.nn.functional as F
 
+from torch_geometric.loader import NeighborLoader
 from random import random
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -63,6 +64,7 @@ class ModelTraining:
         self.t_means = (self.data["X"][self.data["train_mask"]]).mean(dim=0, keepdim=True)
         self.t_stds = (self.data["X"][self.data["train_mask"]]).std(dim=0, keepdim=True)
         
+        self.train_loader = NeighborLoader(self.data, num_neighbors=[10]*2, input_nodes=self.data.train_mask, batch_size=64)
     
     def normalize(self, data):
         """
