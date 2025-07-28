@@ -14,4 +14,6 @@ dependencies = [
     "seaborn>=0.13.2",
     "torch>=2.7.1",
     "torch-geometric>=2.6.1",
+    "torch-scatter>=2.1.2",
+    "torch-sparse>=0.6.18",
 ]
