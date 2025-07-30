@@ -1,8 +1,6 @@
 import torch
 from torch import nn
-from torch_geometric.data import Data
-from torch_geometric.transforms import RandomNodeSplit
-from torch_geometric.nn.conv import GCNConv, MessagePassing
+from torch_geometric.nn.conv import GCNConv, SAGEConv, MessagePassing
 
 class GNN_Model(nn.Module):
     def __init__(
@@ -11,7 +9,8 @@ class GNN_Model(nn.Module):
         c_hidden,
         c_out=1,
         num_layers=2,
-        dp_rate=0.1
+        dp_rate=0.1,
+        SAGE=False
         ):
         """GNNModel.
 
@@ -31,7 +30,7 @@ class GNN_Model(nn.Module):
         in_channels, out_channels = c_in, c_hidden
         for l_idx in range(num_layers - 1):
             layers += [
-                GCNConv(in_channels=in_channels, out_channels=out_channels),
+                SAGEConv(in_channels=in_channels, out_channels=out_channels) if SAGE else GCNConv(in_channels=in_channels, out_channels=out_channels),
                 nn.ReLU(inplace=True),
                 nn.Dropout(dp_rate),
             ]
