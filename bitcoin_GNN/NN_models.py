@@ -35,7 +35,7 @@ class GNN_Model(nn.Module):
                 nn.Dropout(dp_rate),
             ]
             in_channels = c_hidden
-        layers += [GCNConv(in_channels=in_channels, out_channels=c_out)]
+        layers += [SAGEConv(in_channels=in_channels, out_channels=c_out)]
         self.layers = nn.ModuleList(layers)
 
     def forward(self, x, edge_index):

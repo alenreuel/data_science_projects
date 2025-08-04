@@ -61,11 +61,13 @@ class ModelTraining:
 
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr = 0.001)
 
-        self.t_means = (self.data["X"][self.data["train_mask"]]).mean(dim=0, keepdim=True)
-        self.t_stds = (self.data["X"][self.data["train_mask"]]).std(dim=0, keepdim=True)
+        self.t_means = (self.data["x"][self.data["train_mask"]]).mean(dim=0, keepdim=True)
+        self.t_stds = (self.data["x"][self.data["train_mask"]]).std(dim=0, keepdim=True)
         
-        self.train_loader = NeighborLoader(self.data, num_neighbors=[10]*2, input_nodes=self.data.train_mask, batch_size=64)
-    
+        self.train_loader = NeighborLoader(self.data, num_neighbors=[20]*2, input_nodes=self.data.train_mask, batch_size=64)
+        self.val_loader = NeighborLoader(self.data, num_neighbors=[20]*2, input_nodes=self.data.val_mask, batch_size=64)
+        self.test_loader = NeighborLoader(self.data, num_neighbors=[20]*2, input_nodes=self.data.test_mask, batch_size=64)
+
     def normalize(self, data):
         """
             Helper method to return normalized data.
@@ -90,22 +92,30 @@ class ModelTraining:
         torch.manual_seed(47)
             
         self.model.train()
+        tot_loss = 0
+        tot_acc = 0
+        for idx, batch_data in enumerate(self.train_loader):
         # Sets the gradients of all optimized tensors to zero
-        self.optimizer.zero_grad()
-        
-        X_data = self.normalize(self.data["X"]).to(device)
+            self.optimizer.zero_grad()
+            
+            X_data = self.normalize(batch_data["x"]).to(device)
 
-        predictions = self.model(X_data, self.data["edge_index"].to(device))[self.data["train_mask"]]
-        ground_truth = (self.data["y"]).type(torch.float).to(device)[self.data["train_mask"]]
-        # Compute loss (here CrossEntropyLoss)
-        loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
-        # BackProp + Gradient Descent
-        (loss).backward()
-        self.optimizer.step()
-        
+            predictions = self.model(X_data, batch_data["edge_index"].to(device))[batch_data["train_mask"]]
+            ground_truth = (batch_data["y"]).type(torch.float).to(device)[batch_data["train_mask"]]
+            # Compute loss (here CrossEntropyLoss)
+            loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
+            # BackProp + Gradient Descent
+            (loss).backward()
+            self.optimizer.step()
+            if ground_truth.numel()>0: #edge case for when batch is empty
+                tot_acc += accuracy_score(ground_truth.cpu().numpy(), (predictions>0.5).type(torch.long).cpu().numpy() )
+                tot_loss += loss.item()
+            else:
+                    tot_acc += 1
+                    tot_loss += 0
         # metrics
-        self.training_logs["training_loss"].append(loss.item())
-        train_accuracy = accuracy_score(ground_truth.cpu().numpy(), (predictions>0.5).type(torch.long).cpu().numpy() )
+        self.training_logs["training_loss"].append(tot_loss/len(self.train_loader))
+        train_accuracy = tot_acc/len(self.train_loader)
         self.training_logs["training_acc"].append(train_accuracy)
         
         
@@ -114,17 +124,25 @@ class ModelTraining:
         """
             Validation portion of the training loop.
         """
-
+        tot_loss = 0
+        tot_acc = 0
         self.model.eval()
         with torch.inference_mode():
-            predictions = self.model(self.normalize(self.data["X"]).to(device), self.data["edge_index"].to(device))[self.data["val_mask"]]
-            ground_truth = (self.data["y"]).type(torch.float).to(device)[self.data["val_mask"]]
-            loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
-        
+            for idx, batch_data in enumerate(self.val_loader):
+                predictions = self.model(self.normalize(batch_data["x"]).to(device), batch_data["edge_index"].to(device))[batch_data["val_mask"]]
+                ground_truth = (batch_data["y"]).type(torch.float).to(device)[batch_data["val_mask"]]
+                loss = torch.nn.BCEWithLogitsLoss()(torch.reshape(predictions,(-1,)), ground_truth).to(device)
+                if ground_truth.numel()>0: #edge case for when batch is empty
+                    tot_acc += accuracy_score(ground_truth.cpu().numpy(), (predictions>0.5).type(torch.long).cpu().numpy() )
+                    tot_loss += loss.item()
+                else:
+                    tot_acc += 1
+                    tot_loss += 0
         # metrics
-        self.training_logs["val_loss"].append(loss.item())
-        val_accuracy = accuracy_score(ground_truth.cpu().numpy(), (predictions>0.5).type(torch.long).cpu().numpy() )
-        self.training_logs ["val_acc"].append(val_accuracy)
+        # metrics
+        self.training_logs["val_loss"].append(tot_loss/len(self.val_loader))
+        val_accuracy = tot_acc/len(self.val_loader)
+        self.training_logs["val_acc"].append(val_accuracy)
 
 
     def update_training_and_unlabelled_mask(self, random_threshold=0.8):
@@ -137,12 +155,13 @@ class ModelTraining:
         """
         
         original_unlabelled = (self.data.unlabelled_mask == True).nonzero(as_tuple=False)
-
+        device_cpu = "cpu"
         # make predictions
 
         self.model.eval()
         with torch.inference_mode():
-            predictions = self.model(self.normalize(self.data["X"]).to(device), self.data["edge_index"].to(device))
+            self.model.to(device_cpu)
+            predictions = self.model(self.normalize(self.data["x"]).to(device_cpu), self.data["edge_index"].to(device_cpu))
             prob = F.sigmoid(predictions)
 
         for i in original_unlabelled:
@@ -161,6 +180,11 @@ class ModelTraining:
                 self.data["y"][idx] = 0
                 self.data["train_mask"][idx] = True
                 self.data["unlabelled_mask"][idx] = False
+        
+        self.train_loader = NeighborLoader(self.data, num_neighbors=[20]*2, input_nodes=self.data.train_mask, batch_size=64)
+        self.val_loader = NeighborLoader(self.data, num_neighbors=[20]*2, input_nodes=self.data.val_mask, batch_size=64)
+        self.test_loader = NeighborLoader(self.data, num_neighbors=[20]*2, input_nodes=self.data.test_mask, batch_size=64)
+        self.model.to(device)
 
     def regular_training_loop(self, model_path, n_epochs=101):
         """
@@ -262,10 +286,10 @@ class ModelTraining:
         """
         Method for retrieving model predictions based on training mask.
         """
-
-        X_data = self.normalize(self.data["X"]).to(device)
-
-        predictions = self.model(X_data, self.data["edge_index"].to(device))[self.data[mask]]
+        device_cpu = "cpu"
+        X_data = self.normalize(self.data["x"]).to(device_cpu)
+        self.model.to(device_cpu)
+        predictions = self.model(X_data, self.data["edge_index"].to(device_cpu))[self.data[mask]]
         ground_truth = (self.data["y"]).type(torch.float)[self.data[mask]]
-
+        self.model.to(device)
         return (predictions>0.5).type(torch.long).cpu().numpy() , ground_truth.cpu().numpy() 
